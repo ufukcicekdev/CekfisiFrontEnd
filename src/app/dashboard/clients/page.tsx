@@ -19,6 +19,7 @@ import {
   InputLabel 
 } from '@mui/material';
 import { useAuth } from '@/contexts/auth'
+import { getAuthToken } from '@/utils/auth'
 
 interface Client {
   id: number
@@ -72,7 +73,7 @@ export default function ClientsPage() {
       client.first_name.toLowerCase().includes(searchLower) ||
       client.last_name.toLowerCase().includes(searchLower) ||
       client.email.toLowerCase().includes(searchLower) ||
-      client.phone.includes(searchTerm)
+      client.phone.toLowerCase().includes(searchLower)
     )
   })
 
@@ -129,7 +130,8 @@ export default function ClientsPage() {
 
   const handleStatusChange = async (documentId: string, newStatus: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
+      
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/documents/${documentId}/update-status/`, {
         method: 'PATCH',
         headers: {
@@ -140,9 +142,7 @@ export default function ClientsPage() {
       });
 
       if (response.ok) {
-        // Durumu güncelle ve kullanıcıya bildir
         toast.success('Belge durumu güncellendi');
-        // Client listesini yenile
         fetchClients();
       }
     } catch (error) {

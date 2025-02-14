@@ -115,7 +115,6 @@ const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false
             <p className="font-medium">%{document.vat_rate}</p>
           </div>
           <div>
-            <p className="text-gray-500">Durum</p>
             <FormControl 
               size="small" 
               sx={{ 

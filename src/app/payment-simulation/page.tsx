@@ -1,10 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'react-hot-toast'
+import { PageContainer } from '@/components/PageContainer'
 
-export default function PaymentSimulation() {
+// MUI bileşenlerini ve ilgili importları kaldırdık
+// çünkü bu sayfada kullanılmıyor
+
+function PaymentSimulationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const amount = searchParams?.get('amount') ?? '0'
@@ -57,5 +61,13 @@ export default function PaymentSimulation() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PaymentSimulation() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaymentSimulationContent />
+    </Suspense>
   )
 } 

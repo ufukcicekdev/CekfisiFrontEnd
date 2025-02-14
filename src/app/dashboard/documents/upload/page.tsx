@@ -5,15 +5,17 @@ import { useRouter } from 'next/navigation'
 import axios from '@/lib/axios'
 import { PageContainer } from '@/components/PageContainer'
 import { toast } from 'react-hot-toast'
-import { 
-  Select, 
-  MenuItem, 
-  FormControl, 
-  InputLabel,
-  Box,
-  ThemeProvider,
-  createTheme
-} from '@mui/material'
+import dynamic from 'next/dynamic'
+import { createTheme } from '@mui/material/styles'
+import { SelectChangeEvent } from '@mui/material/Select'
+
+// Sadece bileşenleri dinamik olarak import et
+const Select = dynamic(() => import('@mui/material/Select'), { ssr: false })
+const MenuItem = dynamic(() => import('@mui/material/MenuItem'), { ssr: false })
+const FormControl = dynamic(() => import('@mui/material/FormControl'), { ssr: false })
+const InputLabel = dynamic(() => import('@mui/material/InputLabel'), { ssr: false })
+const Box = dynamic(() => import('@mui/material/Box'), { ssr: false })
+const ThemeProvider = dynamic(() => import('@mui/material/styles').then(mod => mod.ThemeProvider), { ssr: false })
 
 const documentTypes = [
   { value: 'invoice', label: 'Fatura' },
@@ -52,12 +54,20 @@ const theme = createTheme({
   },
 })
 
+interface FormData {
+  document_type: string
+  file: File | null
+  date: string
+  amount: string
+  vat_rate: string
+}
+
 export default function UploadPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     document_type: '',
-    file: null as File | null,
+    file: null,
     date: '',
     amount: '',
     vat_rate: ''
@@ -101,6 +111,10 @@ export default function UploadPage() {
     }
   }
 
+  const handleDocumentTypeChange = (event: SelectChangeEvent<unknown>) => {
+    setFormData({ ...formData, document_type: event.target.value as string })
+  }
+
   return (
     <PageContainer>
       <div className="max-w-2xl mx-auto">
@@ -114,7 +128,7 @@ export default function UploadPage() {
                 <Select
                   value={formData.document_type}
                   label="Belge Türü"
-                  onChange={(e) => setFormData({ ...formData, document_type: e.target.value })}
+                  onChange={handleDocumentTypeChange}
                   required
                 >
                   {documentTypes.map(type => (

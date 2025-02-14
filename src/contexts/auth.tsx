@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import axios from '@/lib/axios'
 import { useRouter } from 'next/navigation'
+import { getAuthToken, setAuthToken, removeAuthToken } from '@/utils/auth'
 
 interface User {
   id: number
@@ -30,22 +31,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('token')
-        if (token) {
-          try {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-            
-            const response = await axios.get('/users/me/')
-            setUser(response.data)
-          } catch (error) {
-            console.error('Auth check error:', error)
-            localStorage.removeItem('token')
-            localStorage.removeItem('refresh_token')
-            delete axios.defaults.headers.common['Authorization']
-            setUser(null)
-            router.push('/auth/login')
-          }
+      const token = getAuthToken()
+      if (token) {
+        try {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+          
+          const response = await axios.get('/users/me/')
+          setUser(response.data)
+        } catch (error) {
+          console.error('Auth check error:', error)
+          removeAuthToken()
+          delete axios.defaults.headers.common['Authorization']
+          setUser(null)
+          router.push('/auth/login')
         }
       }
       setIsLoading(false)
@@ -64,8 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const { access, refresh, user: userData } = response.data
       
-      localStorage.setItem('token', access)
-      localStorage.setItem('refresh_token', refresh)
+      setAuthToken(access)
       
       axios.defaults.headers.common['Authorization'] = `Bearer ${access}`
       
@@ -79,14 +76,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('refresh_token')
+    removeAuthToken()
     delete axios.defaults.headers.common['Authorization']
     setUser(null)
     router.push('/auth/login')
   }
 
-  if (isLoading && localStorage.getItem('token')) {
+  if (isLoading && getAuthToken()) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
