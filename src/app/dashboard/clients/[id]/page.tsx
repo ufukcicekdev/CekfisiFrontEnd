@@ -23,7 +23,7 @@ interface Document {
   date: string
   amount: number
   vat_rate: number
-  status: 'pending' | 'processed'
+  status: 'pending' | 'processing' | 'completed' | 'rejected'
   created_at: string
   updated_at: string
 }
@@ -51,31 +51,38 @@ const documentTypes = [
   { value: 'other', label: 'Diğer' }
 ]
 
+const statusTypes = [
+  { value: 'pending', label: 'Beklemede' },
+  { value: 'processing', label: 'İşleniyor' },
+  { value: 'completed', label: 'Tamamlandı' },
+  { value: 'rejected', label: 'Reddedildi' }
+]
+
 interface DocumentModalProps {
   document: Document
   onClose: () => void
-  onStatusChange: (documentId: number, newStatus: string) => Promise<void>
+  onStatusChange?: (documentId: number, newStatus: 'pending' | 'processing' | 'completed' | 'rejected') => Promise<void>
   isAccountant?: boolean
 }
 
 const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false }: DocumentModalProps) => {
   const [isUpdating, setIsUpdating] = useState(false)
 
+  const getStatusLabel = (status: string) => {
+    return statusTypes.find(s => s.value === status)?.label || status
+  }
+
   // PDF görüntüleyici URL'si oluştur
   const getPdfViewerUrl = (fileUrl: string) => {
     return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`
   }
 
-  const handleStatusChange = async (newStatus: 'processed' | 'pending') => {
+  const handleStatusChange = async (newStatus: 'pending' | 'processing' | 'completed' | 'rejected') => {
     if (!onStatusChange) return
     setIsUpdating(true)
     try {
       await onStatusChange(document.id, newStatus)
-      toast.success(
-        newStatus === 'processed' 
-          ? 'Belge başarıyla işlendi olarak işaretlendi'
-          : 'Belge başarıyla bekliyor olarak işaretlendi'
-      )
+      toast.success(`Belge başarıyla ${getStatusLabel(newStatus)} olarak işaretlendi`)
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Belge durumu güncellenirken bir hata oluştu'
       toast.error(errorMessage)
@@ -129,11 +136,14 @@ const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false
               <Select
                 value={document.status}
                 label="Durum"
-                onChange={(e) => handleStatusChange(e.target.value as 'processed' | 'pending')}
+                onChange={(e) => handleStatusChange(e.target.value as 'pending' | 'processing' | 'completed' | 'rejected')}
                 disabled={isUpdating}
               >
-                <MenuItem value="pending">Bekliyor</MenuItem>
-                <MenuItem value="processed">İşlendi</MenuItem>
+                {statusTypes.map(status => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </div>
@@ -322,6 +332,25 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
     }
   }
 
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'processing':
+        return 'bg-blue-100 text-blue-800'
+      case 'completed':
+        return 'bg-green-100 text-green-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusLabel = (status: string) => {
+    return statusTypes.find(s => s.value === status)?.label || status
+  }
+
   return (
     <PageContainer>
       {/* Müşteri Başlığı */}
@@ -415,14 +444,18 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                 </FormControl>
 
                 <FormControl fullWidth>
+                <InputLabel>Durum</InputLabel>
                   <Select
                     value={filters.status}
                     label="Durum"
                     onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                   >
                     <MenuItem value="">Tümü</MenuItem>
-                    <MenuItem value="pending">Bekliyor</MenuItem>
-                    <MenuItem value="processed">İşlendi</MenuItem>
+                    {statusTypes.map(status => (
+                      <MenuItem key={status.value} value={status.value}>
+                        {status.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Box>
@@ -474,12 +507,10 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                     %{document.vat_rate}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm">
-                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                      document.status === 'processed' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                      getStatusBadgeClass(document.status)
                     }`}>
-                      {document.status === 'processed' ? 'İşlendi' : 'Bekliyor'}
+                      {getStatusLabel(document.status)}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -523,9 +554,10 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                         {new Date(doc.date).toLocaleDateString('tr-TR')}
                       </span>
                     </div>
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${doc.status === 'processed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {doc.status === 'processed' ? 'İşlendi' : 'Bekliyor'}
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                      getStatusBadgeClass(doc.status)
+                    }`}>
+                      {getStatusLabel(doc.status)}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">

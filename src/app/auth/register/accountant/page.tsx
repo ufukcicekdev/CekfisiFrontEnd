@@ -26,7 +26,7 @@ export default function AccountantRegisterPage() {
     try {
       console.log('Gönderilen veri:', formData)
 
-      const response = await axios.post('/api/v1/auth/registration/', formData)
+      const response = await axios.post('/auth/register/', formData)
       
       console.log('Başarılı yanıt:', response.data)
 

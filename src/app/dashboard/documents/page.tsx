@@ -24,7 +24,7 @@ interface Document {
   date: string
   amount: number
   vat_rate: number
-  status: string
+  status: 'pending' | 'processing' | 'completed' | 'rejected'
   created_at: string
 }
 
@@ -52,7 +52,7 @@ interface DocumentModalProps {
   onStatusChange?: (documentId: number, newStatus: string) => Promise<void>
   onEdit?: (documentId: number, data: FormData) => Promise<DocumentResponse>
   isAccountant?: boolean
-  formatAmount: (amount: string | number) => string
+  formatAmount: (amount: string | number | null) => string
   onUpdate?: (updatedDocument: Document) => void
 }
 
@@ -63,6 +63,32 @@ const documentTypes = [
   { value: 'contract', label: 'Sözleşme' },
   { value: 'other', label: 'Diğer' }
 ]
+
+const statusTypes = [
+  { value: 'pending', label: 'Beklemede' },
+  { value: 'processing', label: 'İşleniyor' },
+  { value: 'completed', label: 'Tamamlandı' },
+  { value: 'rejected', label: 'Reddedildi' }
+]
+
+const getStatusBadgeClass = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'processing':
+      return 'bg-blue-100 text-blue-800'
+    case 'completed':
+      return 'bg-green-100 text-green-800'
+    case 'rejected':
+      return 'bg-red-100 text-red-800'
+    default:
+      return 'bg-gray-100 text-gray-800'
+  }
+}
+
+const getStatusLabel = (status: string) => {
+  return statusTypes.find(s => s.value === status)?.label || status
+}
 
 const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant = false, formatAmount, onUpdate }: DocumentModalProps) => {
   const [isUpdating, setIsUpdating] = useState(false)
@@ -86,8 +112,8 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
   }
 
   const handleEdit = async () => {
-    if (document.status === 'processed') {
-      toast.error('İşlenmiş belgelerde düzenleme yapılamaz')
+    if (document.status === 'completed' || document.status === 'rejected') {
+      toast.error('Tamamlanmış veya reddedilmiş belgelerde düzenleme yapılamaz')
       return
     }
 
@@ -115,7 +141,7 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
           date: response.date,
           amount: response.amount,
           vat_rate: response.vat_rate,
-          status: response.status,
+          status: response.status as 'pending' | 'processing' | 'completed' | 'rejected',
           created_at: response.created_at
         }
         onUpdate?.(updatedDocument)
@@ -161,7 +187,7 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
                   value={editData.document_type}
                   onChange={(e) => setEditData({ ...editData, document_type: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={document.status === 'processed'}
+                  disabled={document.status === 'completed' || document.status === 'rejected'}
                 >
                   {documentTypes.map(type => (
                     <option key={type.value} value={type.value}>{type.label}</option>
@@ -175,7 +201,7 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
                   value={editData.date}
                   onChange={(e) => setEditData({ ...editData, date: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={document.status === 'processed'}
+                  disabled={document.status === 'completed' || document.status === 'rejected'}
                 />
               </div>
               <div>
@@ -185,7 +211,7 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
                   value={editData.amount}
                   onChange={(e) => setEditData({ ...editData, amount: parseFloat(e.target.value) })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={document.status === 'processed'}
+                  disabled={document.status === 'completed' || document.status === 'rejected'}
                 />
               </div>
               <div>
@@ -195,7 +221,7 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
                   value={editData.vat_rate}
                   onChange={(e) => setEditData({ ...editData, vat_rate: parseFloat(e.target.value) })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={document.status === 'processed'}
+                  disabled={document.status === 'completed' || document.status === 'rejected'}
                 />
               </div>
               <div>
@@ -207,7 +233,7 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
                     accept="image/*,.pdf"
                     className="sr-only"
                     id="file-upload"
-                    disabled={document.status === 'processed'}
+                    disabled={document.status === 'completed' || document.status === 'rejected'}
                   />
                   <label
                     htmlFor="file-upload"
@@ -247,7 +273,7 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
                 </button>
                 <button
                   onClick={handleEdit}
-                  disabled={isUpdating || document.status === 'processed'}
+                  disabled={isUpdating || document.status === 'completed' || document.status === 'rejected'}
                   className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? 'Kaydediliyor...' : 'Kaydet'}
@@ -272,14 +298,12 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
               <div>
                 <p className="text-gray-500">Durum</p>
                 <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                  document.status === 'processed'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-yellow-100 text-yellow-800'
+                  getStatusBadgeClass(document.status)
                 }`}>
-                  {document.status === 'processed' ? 'İşlendi' : 'Bekliyor'}
+                  {getStatusLabel(document.status)}
                 </span>
               </div>
-              {document.status !== 'processed' && (
+              {document.status !== 'completed' && document.status !== 'rejected' && (
                 <div className="col-span-2 flex justify-end">
                   <button
                     onClick={() => setIsEditing(true)}
@@ -418,19 +442,37 @@ export default function DocumentsPage() {
   })
 
   const totalAmount = filteredDocuments.reduce((sum, doc) => {
-    const amount = typeof doc.amount === 'string' ? parseFloat(doc.amount) : doc.amount
-    return sum + amount
+    const amount = doc.amount === null ? 0 : 
+      typeof doc.amount === 'string' ? parseFloat(doc.amount) : doc.amount
+    return sum + (isNaN(amount) ? 0 : amount)
   }, 0)
 
   const totalVat = filteredDocuments.reduce((sum, doc) => {
-    const amount = typeof doc.amount === 'string' ? parseFloat(doc.amount) : doc.amount
-    const vatRate = typeof doc.vat_rate === 'string' ? parseFloat(doc.vat_rate) : doc.vat_rate
+    const amount = doc.amount === null ? 0 :
+      typeof doc.amount === 'string' ? parseFloat(doc.amount) : doc.amount
+    const vatRate = doc.vat_rate === null ? 0 :
+      typeof doc.vat_rate === 'string' ? parseFloat(doc.vat_rate) : doc.vat_rate
+    
+    if (isNaN(amount) || isNaN(vatRate)) {
+      return sum
+    }
+    
     return sum + (amount * vatRate / 100)
   }, 0)
 
   // Belge kartı/satırı için tutar formatlaması
-  const formatAmount = (amount: string | number) => {
+  const formatAmount = (amount: string | number | null) => {
+    if (amount === null || amount === undefined) {
+      return '0,00'
+    }
+
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
+
+    // NaN kontrolü
+    if (isNaN(numAmount)) {
+      return '0,00'
+    }
+
     return numAmount.toLocaleString('tr-TR', { 
       minimumFractionDigits: 2,
       maximumFractionDigits: 2 
@@ -507,7 +549,7 @@ export default function DocumentsPage() {
             <div>
               <span className="text-gray-500 text-sm">Bekleyen Belge</span>
               <p className="text-lg font-semibold text-gray-900">
-                {filteredDocuments.filter(doc => doc.status === 'pending').length}
+                {filteredDocuments.filter(doc => doc.status === 'pending' || doc.status === 'processing').length}
               </p>
             </div>
           </div>
@@ -572,8 +614,11 @@ export default function DocumentsPage() {
                     onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                   >
                     <MenuItem value="">Tümü</MenuItem>
-                    <MenuItem value="pending">Bekliyor</MenuItem>
-                    <MenuItem value="processed">İşlendi</MenuItem>
+                    {statusTypes.map(status => (
+                      <MenuItem key={status.value} value={status.value}>
+                        {status.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Box>
@@ -631,11 +676,9 @@ export default function DocumentsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                        document.status === 'processed'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
+                        getStatusBadgeClass(document.status)
                       }`}>
-                        {document.status === 'processed' ? 'İşlendi' : 'Bekliyor'}
+                        {getStatusLabel(document.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -683,11 +726,9 @@ export default function DocumentsPage() {
                       </p>
                     </div>
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                      document.status === 'processed'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
+                      getStatusBadgeClass(document.status)
                     }`}>
-                      {document.status === 'processed' ? 'İşlendi' : 'Bekliyor'}
+                      {getStatusLabel(document.status)}
                     </span>
                   </div>
 
