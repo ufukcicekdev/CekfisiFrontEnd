@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth'
+import Link from 'next/link'
 
 export default function HomePage() {
   const { user, isLoading } = useAuth()
@@ -17,25 +18,50 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
+      
       <header className="bg-white shadow-sm">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="font-bold text-xl text-indigo-600">Çek Fişi</div>
-          <div className="space-x-4">
-            <a
-              href="/auth/login/accountant"
-              className="text-gray-500 hover:text-gray-700"
-            >
-              Mali Müşavir Girişi
-            </a>
-            <a
-              href="/auth/login/client"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              Mükellef Girişi
-            </a>
-          </div>
-        </nav>
-      </header>
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="relative h-16 flex items-center justify-between">
+      {/* Logo */}
+      <div className="flex-shrink-0">
+        <Link href="/" className="font-bold text-xl text-indigo-600">
+          Çek Fişi
+        </Link>
+      </div>
+      
+      {/* Desktop Navigation */}
+      <div className="hidden sm:ml-6 sm:flex sm:items-center sm:space-x-8">
+        <Link
+          href="/auth/login/accountant"
+          className="text-gray-500 hover:text-gray-700 px-3 py-2 text-sm font-medium"
+        >
+          Mali Müşavir Girişi
+        </Link>
+        <Link
+          href="/auth/login/client"
+          className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-md text-sm font-medium"
+        >
+          Mükellef Girişi
+        </Link>
+      </div>
+      {/* Mobile Navigation */}
+      <div className="flex items-center sm:hidden">
+        <Link
+          href="/auth/login"
+          className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap"
+        >
+          Giriş Yap
+        </Link>
+      </div>
+    </div>
+  </div>
+</header>
+      
+      
+      
+      
+      
+      
 
       {/* Hero Section */}
       <div className="relative">
