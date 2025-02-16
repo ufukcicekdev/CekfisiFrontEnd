@@ -245,6 +245,7 @@ export default function MessagesPage() {
     selectedRoom?.id.toString() || null,
     {
       token,
+      userId: user?.id,
       onMessage: (data: WebSocketMessage) => {
         if (data.type === 'message' && data.data) {
           const messageData = data.data as Message;
@@ -252,12 +253,11 @@ export default function MessagesPage() {
             if (prev.some(msg => msg.id === messageData.id)) {
               return prev;
             }
-            if (messageData.sender.id !== user?.id) {
-              showNotification(messageData);
-            }
             return [...prev, messageData];
           });
-          scrollToBottom();
+          setTimeout(() => {
+            scrollToBottom();
+          }, 100);
         }
       },
       reconnectAttempts: 3,
@@ -385,24 +385,38 @@ export default function MessagesPage() {
     e.preventDefault();
     if (!selectedRoom || !newMessage.trim()) return;
 
-    try {
-      const response = await axios.post(
-        `/api/v1/chat/rooms/${selectedRoom.id}/messages/`,
-        {
-          content: newMessage.trim(),
-          message_type: 'text'
-        }
-      );
+    const messageContent = newMessage.trim();
+    setNewMessage('');
 
-      if (response.data) {
+    if (isConnected) {
+      const success = sendMessage(messageContent);
+      if (!success) {
+        try {
+          const response = await axios.post(
+            `/api/v1/chat/rooms/${selectedRoom.id}/messages/`,
+            { content: messageContent }
+          );
+          setMessages(prev => [...prev, response.data]);
+          scrollToBottom();
+        } catch (error) {
+          console.error('Mesaj gönderme hatası:', error);
+          toast.error('Mesaj gönderilemedi');
+          setNewMessage(messageContent);
+        }
+      }
+    } else {
+      try {
+        const response = await axios.post(
+          `/api/v1/chat/rooms/${selectedRoom.id}/messages/`,
+          { content: messageContent }
+        );
         setMessages(prev => [...prev, response.data]);
         scrollToBottom();
+      } catch (error) {
+        console.error('Mesaj gönderme hatası:', error);
+        toast.error('Mesaj gönderilemedi');
+        setNewMessage(messageContent);
       }
-
-      setNewMessage('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error('Mesaj gönderilemedi');
     }
   };
 

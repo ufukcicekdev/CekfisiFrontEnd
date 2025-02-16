@@ -32,6 +32,7 @@ interface WebSocketOptions {
   reconnectAttempts?: number;
   reconnectInterval?: number;
   token: string;
+  userId?: number;
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
@@ -123,6 +124,12 @@ export const useWebSocket = (roomId: string | null, options: WebSocketOptions) =
             case 'message':
               if (data.data) {
                 options.onMessage?.(data);
+                if (document.hidden && data.data.sender?.id !== options.userId) {
+                  new Notification('Yeni Mesaj', {
+                    body: `${data.data.sender?.email}: ${data.data.content}`,
+                    icon: '/logo.png'
+                  });
+                }
               }
               break;
           }
@@ -158,7 +165,7 @@ export const useWebSocket = (roomId: string | null, options: WebSocketOptions) =
       setIsConnected(false);
       isConnectingRef.current = false;
     }
-  }, [roomId, token, maxReconnectAttempts, options.onMessage]);
+  }, [roomId, token, maxReconnectAttempts, options.onMessage, options.userId]);
 
   useEffect(() => {
     cleanup();
