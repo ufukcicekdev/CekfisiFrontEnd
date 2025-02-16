@@ -16,6 +16,7 @@ interface Plan {
   description: string
   trial_days?: number
   is_active: boolean
+  features?: string[]
 }
 
 interface Subscription {
@@ -51,11 +52,12 @@ export default function SubscriptionPage() {
 
   const fetchPlans = async () => {
     try {
+      setLoading(true)
       const response = await axios.get('/api/v1/subscription-plans/')
-      setPlans(response.data)
+      setPlans(response.data.results)
     } catch (error) {
       console.error('Error fetching plans:', error)
-      toast.error('Plan bilgileri yüklenirken bir hata oluştu')
+      toast.error('Abonelik planları yüklenirken bir hata oluştu')
     } finally {
       setLoading(false)
     }
@@ -123,37 +125,84 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Plan Listesi - Responsive Grid */}
+      {/* Plan Listesi */}
       <div className="bg-white shadow rounded-lg p-4 sm:p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4 sm:mb-6">Abonelik Planları</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {plans.map((plan) => (
-            <div key={plan.id} className="border rounded-lg p-4 sm:p-6 flex flex-col">
-              {/* Plan Başlığı ve Fiyat */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                <div className="mb-2 sm:mb-0">
-                  <h3 className="text-lg font-medium text-gray-900">{plan.name}</h3>
-                  <p className="mt-1 text-sm text-gray-500">{plan.description}</p>
+        
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          </div>
+        ) : plans.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            {plans.map((plan) => (
+              <div key={plan.id} className="border rounded-lg p-4 sm:p-6 flex flex-col">
+                {/* Plan Başlığı ve Fiyat */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">{plan.name}</h3>
+                    <p className="text-sm text-gray-500">{plan.description}</p>
+                  </div>
+                  <div className="mt-2 sm:mt-0 text-right">
+                    <p className="text-2xl font-bold text-gray-900">{Number(plan.base_price).toLocaleString('tr-TR')}₺</p>
+                    <p className="text-sm text-gray-500">/ay</p>
+                    <p className="text-xs text-gray-500">
+                      {plan.base_client_limit} müşteri dahil
+                      {plan.price_per_extra_client && (
+                        <span className="block">
+                          Ek müşteri: {Number(plan.price_per_extra_client)}₺/ay
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 </div>
-                <div className="w-full sm:w-auto text-left sm:text-right">
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900">
-                    {formatPrice(calculatePrice(plan, selectedClients[plan.id] || plan.base_client_limit))}
-                  </p>
+
+                {/* Özellikler Listesi */}
+                {plan.features && plan.features.length > 0 && (
+                  <ul className="space-y-3 flex-grow">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <svg className="h-5 w-5 text-green-500 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="ml-2 text-gray-700">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Plan Tipi ve Durum */}
+                <div className="mt-4 mb-6">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                    ${plan.plan_type === 'paid' ? 'bg-green-100 text-green-800' : 
+                      plan.plan_type === 'trial' ? 'bg-blue-100 text-blue-800' : 
+                      'bg-gray-100 text-gray-800'}`}
+                  >
+                    {plan.plan_type === 'paid' ? 'Ücretli' : 
+                     plan.plan_type === 'trial' ? 'Deneme' : 'Ücretsiz'}
+                    {plan.trial_days && ` - ${plan.trial_days} gün`}
+                  </span>
                 </div>
+
+                {/* Satın Al Butonu */}
+                <button
+                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={!plan.is_active}
+                  className={`mt-auto w-full py-2 px-4 rounded-md transition-colors
+                    ${plan.is_active 
+                      ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                      : 'bg-gray-100 text-gray-500 cursor-not-allowed'}`}
+                >
+                  {plan.is_active ? 'Satın Al' : 'Şu Anda Mevcut Değil'}
+                </button>
               </div>
-
-              {/* Müşteri Bilgileri */}
-
-              {/* Plan Seçme Butonu */}
-              <button
-                onClick={() => handleSelectPlan(plan.id)}
-                className="mt-4 w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors"
-              >
-                Bu Planı Seç
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-gray-500 py-12">
+            Henüz abonelik planı bulunmuyor
+          </div>
+        )}
       </div>
     </PageContainer>
   )

@@ -421,7 +421,7 @@ export default function DocumentsPage() {
     setLoading(true)
     try {
       const response = await axios.get('/api/v1/documents/')
-      setDocuments(response.data)
+      setDocuments(response.data.results)
     } catch (error) {
       console.error('Error fetching documents:', error)
       toast.error('Belgeler yüklenirken bir hata oluştu')

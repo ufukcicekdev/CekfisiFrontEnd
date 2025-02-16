@@ -12,7 +12,8 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowLeftOnRectangleIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 
@@ -35,9 +36,11 @@ const Sidebar = () => {
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     ...(isAccountant ? [
       { name: 'Müşterilerim', href: '/dashboard/clients', icon: UsersIcon },
+      { name: 'Mesajlar', href: '/dashboard/messages', icon: ChatBubbleLeftRightIcon },
       { name: 'Abonelik', href: '/dashboard/subscription', icon: CreditCardIcon },
     ] : [
       { name: 'Belgelerim', href: '/dashboard/documents', icon: DocumentTextIcon },
+      { name: 'Mesajlar', href: '/dashboard/client/messages', icon: ChatBubbleLeftRightIcon },
     ]),
     { name: 'Profilim', href: '/dashboard/profile', icon: UserCircleIcon },
   ]

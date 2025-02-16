@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { useAuth } from '@/contexts/auth'
 import { getAuthToken } from '@/utils/auth'
+import { ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 
 interface Client {
   id: number
@@ -150,6 +151,17 @@ export default function ClientsPage() {
     }
   };
 
+  const startChat = async (clientId: number) => {
+    try {
+      const response = await axios.post('/api/v1/chat/rooms/create/', {
+        client_id: clientId
+      })
+      router.push(`/dashboard/messages?room=${response.data.id}`)
+    } catch (error) {
+      toast.error('Sohbet başlatılırken bir hata oluştu')
+    }
+  }
+
   return (
     <PageContainer>
       <div className="sm:flex sm:items-center sm:justify-between">
@@ -250,6 +262,13 @@ export default function ClientsPage() {
                           Detay
                         </Link>
                         <button
+                          onClick={() => startChat(client.id)}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          title="Mesaj Gönder"
+                        >
+                          <ChatBubbleLeftIcon className="h-5 w-5" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteClick(client.id)}
                           className="text-red-600 hover:text-red-900"
                         >
@@ -324,6 +343,12 @@ export default function ClientsPage() {
                   >
                     Detay
                   </Link>
+                  <button
+                    onClick={() => startChat(client.id)}
+                    className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                  >
+                    Mesaj
+                  </button>
                   <button
                     onClick={() => handleDeleteClick(client.id)}
                     className="text-red-600 hover:text-red-900 text-sm font-medium"
