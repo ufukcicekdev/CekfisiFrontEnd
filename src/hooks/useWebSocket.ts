@@ -72,7 +72,7 @@ export const useWebSocket = (roomId: string | null, options: WebSocketOptions) =
     isConnectingRef.current = true;
 
     try {
-      const wsUrl = `ws://localhost:8000/ws/chat/${roomId}/?token=${token}`;
+      const wsUrl = `${WS_URL}/ws/chat/${roomId}/?token=${token}`;
       console.log('WebSocket bağlantısı başlatılıyor:', wsUrl);
       
       const ws = new WebSocket(wsUrl);
