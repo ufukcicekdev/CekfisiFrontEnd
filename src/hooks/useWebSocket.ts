@@ -13,10 +13,18 @@ interface Message {
   timestamp: string;
 }
 
-interface WebSocketMessage {
-  type: 'message' | 'ping' | 'pong' | 'connection_established';
-  data?: Message;
-  content?: string;
+export interface WebSocketMessage {
+  type: 'message' | 'ping' | 'pong' | 'connection_established' | 'notification';
+  data?: {
+    id?: number;
+    content?: string;
+    sender?: {
+      id: number;
+      email: string;
+      user_type: string;
+    };
+    timestamp?: string;
+  };
 }
 
 interface WebSocketOptions {
@@ -172,7 +180,9 @@ export const useWebSocket = (roomId: string | null, options: WebSocketOptions) =
     try {
       const message: WebSocketMessage = {
         type: 'message',
-        content
+        data: {
+          content: content
+        }
       };
       wsRef.current.send(JSON.stringify(message));
       return true;

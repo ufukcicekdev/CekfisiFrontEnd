@@ -11,7 +11,7 @@ import EmojiPicker from 'emoji-picker-react'
 import { FaceSmileIcon } from '@heroicons/react/24/outline'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { EmojiClickData } from 'emoji-picker-react'
-import { useWebSocket } from '@/hooks/useWebSocket'
+import { useWebSocket, WebSocketMessage } from '@/hooks/useWebSocket'
 import { getAuthToken } from '@/utils/auth'
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
@@ -76,11 +76,6 @@ interface Client {
   first_name: string
   last_name: string
   email: string
-}
-
-interface WebSocketMessage {
-  type: 'message';
-  data: Message;
 }
 
 interface WebSocketNotification {
@@ -250,20 +245,19 @@ export default function MessagesPage() {
     selectedRoom?.id.toString() || null,
     {
       token,
-      onMessage: (data: WebSocketData) => {
+      onMessage: (data: WebSocketMessage) => {
         if (data.type === 'message' && data.data) {
+          const messageData = data.data as Message;
           setMessages(prev => {
-            if (prev.some(msg => msg.id === data.data.id)) {
+            if (prev.some(msg => msg.id === messageData.id)) {
               return prev;
             }
-            if (data.data.sender.id !== user?.id) {
-              showNotification(data.data);
+            if (messageData.sender.id !== user?.id) {
+              showNotification(messageData);
             }
-            return [...prev, data.data];
+            return [...prev, messageData];
           });
           scrollToBottom();
-        } else if (data.type === 'notification' && data.data) {
-          showNotification(data.data.message);
         }
       },
       reconnectAttempts: 3,
@@ -723,14 +717,6 @@ export default function MessagesPage() {
             Bildirimlere izin ver
           </button>
         )}
-        
-        
-        
-        
-        
-        
-        
-        
       </div>
     </PageContainer>
   )

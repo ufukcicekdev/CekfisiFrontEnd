@@ -9,7 +9,7 @@ import { useSearchParams } from 'next/navigation'
 import EmojiPicker from 'emoji-picker-react'
 import { FaceSmileIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { EmojiClickData } from 'emoji-picker-react'
-import { useWebSocket } from '@/hooks/useWebSocket'
+import { useWebSocket, WebSocketMessage } from '@/hooks/useWebSocket'
 import { getAuthToken } from '@/utils/auth'
 
 // Interface'leri ekleyelim
@@ -46,15 +46,6 @@ interface Message {
   timestamp: string
 }
 
-interface WebSocketData {
-  type: 'message' | 'ping' | 'pong' | 'connection_established' | 'notification'
-  data?: Message | {
-    message: Message
-    room_id: number
-    sender: User
-  }
-}
-
 export default function ClientMessagesPage() {
   const { user } = useAuth()
   const [rooms, setRooms] = useState<Room[]>([])
@@ -78,21 +69,20 @@ export default function ClientMessagesPage() {
     selectedRoom?.id.toString() || null,
     {
       token,
-      onMessage: (data: WebSocketData) => {
+      onMessage: (data: WebSocketMessage) => {
         if (data.type === 'message' && data.data) {
+          const messageData = data.data as Message;
           setMessages(prev => {
-            if (prev.some(msg => msg.id === data.data?.id)) {
+            if (prev.some(msg => msg.id === messageData.id)) {
               return prev;
             }
-            return data.data ? [...prev, data.data] : prev;
+            return [...prev, messageData];
           });
           scrollToBottom();
           
-          if (data.data.sender.id !== user?.id) {
-            showNotification(data.data);
+          if (messageData.sender.id !== user?.id) {
+            showNotification(messageData);
           }
-        } else if (data.type === 'notification' && data.data) {
-          showNotification(data.data.message);
         }
       },
       reconnectAttempts: 3,
@@ -517,14 +507,6 @@ export default function ClientMessagesPage() {
             Bildirimlere izin ver
           </button>
         )}
-       
-       
-       
-       
-       
-       
-       
-       
       </div>
     </PageContainer>
   )

@@ -1,7 +1,9 @@
+'use client'
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export default function ClientNavbar() {
+export const ClientNavbar = () => {
   const pathname = usePathname()
 
   return (
@@ -17,7 +19,7 @@ export default function ClientNavbar() {
                 <Link
                   href="/dashboard/client/messages"
                   className={`text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium ${
-                    pathname.startsWith('/dashboard/client/messages') ? 'bg-gray-100' : ''
+                    pathname?.startsWith('/dashboard/client/messages') ? 'bg-gray-100' : ''
                   }`}
                 >
                   Mesajlar
