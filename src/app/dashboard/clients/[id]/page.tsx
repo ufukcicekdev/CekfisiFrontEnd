@@ -115,11 +115,11 @@ const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false
           </div>
           <div>
             <p className="text-gray-500">Tutar</p>
-            <p className="font-medium">{document.amount.toLocaleString('tr-TR')}₺</p>
+            <p className="font-medium">{document?.amount?.toLocaleString('tr-TR')}₺</p>
           </div>
           <div>
             <p className="text-gray-500">KDV</p>
-            <p className="font-medium">%{document.vat_rate}</p>
+            <p className="font-medium">%{document?.vat_rate}</p>
           </div>
           <div>
             <FormControl 
@@ -521,10 +521,10 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                     {new Date(document.date).toLocaleDateString('tr-TR')}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {document.amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
+                    {document?.amount?.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    %{document.vat_rate}
+                    %{document?.vat_rate}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm">
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${

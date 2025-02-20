@@ -11,6 +11,7 @@ import { FaceSmileIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { EmojiClickData } from 'emoji-picker-react'
 import { useWebSocket, WebSocketMessage } from '@/hooks/useWebSocket'
 import { getAuthToken } from '@/utils/auth'
+import { v4 as uuidv4 } from 'uuid'
 
 // Interface'leri ekleyelim
 interface User {
@@ -64,29 +65,39 @@ export default function ClientMessagesPage() {
   const token = getAuthToken()
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
-
   const { isConnected, sendMessage } = useWebSocket(
     selectedRoom?.id.toString() || null,
     {
       token,
       onMessage: (data: WebSocketMessage) => {
+        console.log('WebSocket mesajı alındı:', data);
+        
         if (data.type === 'message' && data.data) {
-          const messageData = data.data as Message;
+          if (!data.data.id || !data.data.content || !data.data.sender || !data.data.timestamp) {
+            console.error('Eksik mesaj verisi:', data);
+            return;
+          }
+
+          const messageData: Message = {
+            id: data.data.id,
+            content: data.data.content,
+            sender: data.data.sender,
+            timestamp: data.data.timestamp
+          };
+
           setMessages(prev => {
             if (prev.some(msg => msg.id === messageData.id)) {
               return prev;
             }
             return [...prev, messageData];
           });
-          scrollToBottom();
-          
+
+          setTimeout(scrollToBottom, 100);
           if (messageData.sender.id !== user?.id) {
             showNotification(messageData);
           }
         }
-      },
-      reconnectAttempts: 3,
-      reconnectInterval: 2000
+      }
     }
   )
 
@@ -202,25 +213,45 @@ export default function ClientMessagesPage() {
     const messageContent = newMessage.trim();
     setNewMessage('');
 
-    if (isConnected) {
-      const success = sendMessage(messageContent);
-      if (!success) {
-        toast.error('Mesaj gönderilemedi');
-        setNewMessage(messageContent);
-      }
-    } else {
-      try {
+    try {
+      if (isConnected) {
+        console.log('WebSocket üzerinden mesaj gönderiliyor...');
+        
+        // Geçici mesaj ekle (optimistic update)
+        const tempMessage: Message = {
+          id: Date.now(), // Geçici ID
+          content: messageContent,
+          sender: {
+            id: user!.id,
+            email: user!.email,
+            user_type: user!.user_type
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        // Önce mesajı göster
+        setMessages(prev => [...prev, tempMessage]);
+        scrollToBottom();
+
+        // Sonra gönder
+        const success = sendMessage(messageContent);
+        if (!success) {
+          throw new Error('WebSocket mesajı gönderilemedi');
+        }
+      } else {
+        // HTTP fallback
         const response = await axios.post<Message>(
           `/api/v1/chat/rooms/${selectedRoom.id}/messages/`,
           { content: messageContent }
         );
+        
         setMessages(prev => [...prev, response.data]);
         scrollToBottom();
-      } catch (error) {
-        console.error('Error sending message:', error);
-        toast.error('Mesaj gönderilemedi');
-        setNewMessage(messageContent);
       }
+    } catch (error) {
+      console.error('Mesaj gönderme hatası:', error);
+      toast.error('Mesaj gönderilemedi');
+      setNewMessage(messageContent); // Hata durumunda mesajı geri yükle
     }
   };
 
@@ -297,6 +328,60 @@ export default function ClientMessagesPage() {
   useEffect(() => {
     requestNotificationPermission();
   }, [requestNotificationPermission]);
+
+  // Mesaj listesi render kısmını güncelleyelim
+  const renderMessages = () => {
+    if (messages.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-gray-500">
+          Henüz mesaj yok
+        </div>
+      );
+    }
+
+    // Mesajları tarihe göre grupla
+    const groupedMessages = messages.reduce((groups: Record<string, Message[]>, message) => {
+      const date = new Date(message.timestamp).toLocaleDateString('tr-TR');
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+      return groups;
+    }, {});
+
+    return Object.entries(groupedMessages).map(([date, dateMessages]) => (
+      <div key={date} className="space-y-2">
+        <div className="text-center">
+          <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">
+            {date}
+          </span>
+        </div>
+        {dateMessages.map((message) => (
+          <div
+            key={`${message.id}-${uuidv4()}`}
+            className={`flex ${message.sender.id === user?.id ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-4 py-2 ${
+                message.sender.id === user?.id
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-900'
+              }`}
+            >
+              <div className="text-sm break-words">{message.content}</div>
+              <div
+                className={`text-xs mt-1 ${
+                  message.sender.id === user?.id ? 'text-indigo-200' : 'text-gray-500'
+                }`}
+              >
+                {new Date(message.timestamp).toLocaleTimeString('tr-TR')}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ));
+  };
 
   return (
     <PageContainer>
@@ -382,40 +467,7 @@ export default function ClientMessagesPage() {
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
                     </div>
                   )}
-
-                  {Array.isArray(messages) && messages.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      Henüz mesaj yok
-                    </div>
-                  ) : Array.isArray(messages) ? (
-                    messages.map(message => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.sender.id === user?.id ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-4 py-2 ${
-                            message.sender.id === user?.id
-                              ? 'bg-indigo-600 text-white'
-                              : 'bg-gray-100 text-gray-900'
-                          }`}
-                        >
-                          <div className="text-sm break-words">
-                            {message.content}
-                          </div>
-                          <div className={`text-xs mt-1 ${
-                            message.sender.id === user?.id ? 'text-indigo-200' : 'text-gray-500'
-                          }`}>
-                            {new Date(message.timestamp).toLocaleTimeString('tr-TR')}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      Mesajlar yüklenirken bir hata oluştu
-                    </div>
-                  )}
+                  {renderMessages()}
                   <div ref={messagesEndRef} />
                 </div>
               </div>
