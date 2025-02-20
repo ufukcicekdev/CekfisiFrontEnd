@@ -24,9 +24,15 @@ interface WebSocketOptions {
   onMessage: (data: WebSocketMessage) => void;
 }
 
+// Sabitleri tanımlayalım
+const MAX_RETRY_ATTEMPTS = 3;
+const MAX_RETRY_DELAY = 15000;
+const CONNECTION_TIMEOUT = 10000;
+
 export const useWebSocket = (roomId: string | null, options: WebSocketOptions) => {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const retryCount = useRef(0);
 
   const connectWebSocket = useCallback(() => {
     if (!roomId || !options.token) {
@@ -46,6 +52,7 @@ export const useWebSocket = (roomId: string | null, options: WebSocketOptions) =
       ws.onopen = () => {
         console.log('WebSocket bağlantısı başarılı. Room:', roomId);
         setIsConnected(true);
+        retryCount.current = 0;
       };
 
       ws.onmessage = (event) => {
@@ -63,8 +70,10 @@ export const useWebSocket = (roomId: string | null, options: WebSocketOptions) =
         setIsConnected(false);
         
         // Bağlantı beklenmedik şekilde kapandıysa yeniden bağlan
-        if (event.code !== 1000 && event.code !== 1001) {
-          setTimeout(connectWebSocket, 3000);
+        if (event.code !== 1000 && event.code !== 1001 && retryCount.current < MAX_RETRY_ATTEMPTS) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount.current), MAX_RETRY_DELAY);
+          retryCount.current += 1;
+          setTimeout(connectWebSocket, delay);
         }
       };
 
@@ -90,10 +99,9 @@ export const useWebSocket = (roomId: string | null, options: WebSocketOptions) =
     }
 
     try {
-      // Backend'in beklediği formatta mesaj gönder
       const messageData = {
         type: 'message',
-        data: {  // data objesi içinde gönder
+        data: {
           content: content,
           room_id: parseInt(roomId)
         }
@@ -128,50 +136,4 @@ export const useWebSocket = (roomId: string | null, options: WebSocketOptions) =
     isConnected,
     sendMessage
   };
-};
-
-// Sabitleri güncelleyelim
-const MAX_RETRY_ATTEMPTS = 3; // Deneme sayısını azaltalım
-const MAX_RETRY_DELAY = 15000; // maksimum 15 saniye bekleyelim
-const CONNECTION_TIMEOUT = 10000; // 10 saniye bağlantı zaman aşımı
-
-// Hook'u güncelleyelim
-export const useWebSocket = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
-  const retryCount = useRef(0);
-
-  useEffect(() => {
-    const ws = connectWebSocket();
-    if (ws) {
-      wsRef.current = ws;
-    }
-
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close(1000, 'Component unmounting');
-        wsRef.current = null;
-      }
-    };
-  }, []);
-
-  // Mesaj gönderme fonksiyonu
-  const sendMessage = useCallback((message: any) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return wsRef.current.sendMessage?.(message);
-    } else {
-      console.error('WebSocket bağlantısı yok veya kapalı');
-      return false;
-    }
-  }, []);
-
-  return {
-    isConnected,
-    messages,
-    sendMessage,
-    wsRef: wsRef.current
-  };
-};
-
-// ... existing code ... 
+}; 

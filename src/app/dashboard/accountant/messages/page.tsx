@@ -13,7 +13,29 @@ import { useWebSocket, WebSocketMessage } from '@/hooks/useWebSocket'
 import { getAuthToken } from '@/utils/auth'
 import { v4 as uuidv4 } from 'uuid'
 
-interface WebSocketData {
+interface User {
+  id: number;
+  email: string;
+  user_type: string;
+}
+
+interface LastMessage {
+  id: number;
+  sender: User;
+  content: string;
+  timestamp: string;
+}
+
+interface Room {
+  id: number;
+  name: string;
+  accountant: User;
+  client: User;
+  created_at: string;
+  last_message: LastMessage | null;
+}
+
+interface Message {
   id: number;
   content: string;
   sender: {
@@ -22,16 +44,26 @@ interface WebSocketData {
     user_type: string;
   };
   timestamp: string;
-  room_id: number;
-}
-
-interface WebSocketMessage {
-  type: 'message' | 'connection_established' | 'ping' | 'pong';
-  data: WebSocketData;
 }
 
 export default function AccountantMessagesPage() {
-  // ... diğer state tanımlamaları aynı ...
+  const { user } = useAuth();
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
+  const roomId = searchParams?.get('room');
+  const token = getAuthToken();
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
   const { isConnected, sendMessage } = useWebSocket(
     selectedRoom?.id.toString() || null,
@@ -39,10 +71,19 @@ export default function AccountantMessagesPage() {
       token,
       onMessage: (data: WebSocketMessage) => {
         if (data.type === 'message' && data.data) {
+          if (!data.data.id || !data.data.content || !data.data.sender || !data.data.timestamp) {
+            console.error('Eksik mesaj verisi:', data);
+            return;
+          }
+
           const messageData: Message = {
             id: data.data.id,
             content: data.data.content,
-            sender: data.data.sender,
+            sender: {
+              id: data.data.sender.id,
+              email: data.data.sender.email,
+              user_type: data.data.sender.user_type
+            },
             timestamp: data.data.timestamp
           };
 
@@ -114,6 +155,19 @@ export default function AccountantMessagesPage() {
       toast.error('Mesaj gönderilemedi');
     }
   };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const showNotification = useCallback((message: Message) => {
+    if (notificationPermission === 'granted' && document.hidden) {
+      new Notification('Yeni Mesaj', {
+        body: message.content,
+        icon: '/logo.png'
+      });
+    }
+  }, [notificationPermission]);
 
   // ... diğer fonksiyonlar ve JSX aynı ...
 } 
