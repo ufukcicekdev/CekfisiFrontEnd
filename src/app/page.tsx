@@ -6,47 +6,16 @@ import { useAuth } from '@/contexts/auth'
 import Link from 'next/link'
 import axios from '@/lib/axios'
 
-interface Accountant {
-  id: number
-  first_name: string
-  last_name: string
-  title?: string
-  experience_years?: number
-  company_name?: string
-  city?: string
-  about?: string
-  profile_image?: string
-  specializations?: string[]
-}
 
 export default function HomePage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
-  const [accountants, setAccountants] = useState<Accountant[]>([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!isLoading && user) {
       router.push('/dashboard')
     }
   }, [user, isLoading, router])
-
-  useEffect(() => {
-    const fetchAccountants = async () => {
-      try {
-        const response = await axios.get('/api/v1/accountants/')
-        const accountantsList = response.data.results || response.data
-        setAccountants(Array.isArray(accountantsList) ? accountantsList : [])
-      } catch (error) {
-        console.error('Mali müşavirler yüklenirken hata:', error)
-        setAccountants([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchAccountants()
-  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -224,98 +193,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-
-      {/* Mali Müşavirler Listesi */}
-      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-8">
-          Öne Çıkan Mali Müşavirler
-        </h2>
-
-        {loading ? (
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-          </div>
-        ) : Array.isArray(accountants) && accountants.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {accountants.map((accountant) => (
-              <div
-                key={accountant.id}
-                className="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow"
-              >
-                <div className="p-6">
-                  <div className="flex items-center">
-                    <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-200">
-                      {accountant.profile_image ? (
-                        <img
-                          src={accountant.profile_image}
-                          alt={`${accountant.first_name} ${accountant.last_name}`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center bg-indigo-100 text-indigo-600">
-                          {accountant.first_name[0]}
-                          {accountant.last_name[0]}
-                        </div>
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-medium text-gray-900">
-                        {accountant.first_name} {accountant.last_name}
-                      </h3>
-                      {accountant.title && (
-                        <p className="text-sm text-gray-500">{accountant.title}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    {accountant.specializations && accountant.specializations.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {accountant.specializations.map((spec, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
-                          >
-                            {spec}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {accountant.about && (
-                      <p className="text-sm text-gray-500 line-clamp-3">
-                        {accountant.about}
-                      </p>
-                    )}
-
-                    <div className="mt-4 flex items-center text-sm text-gray-500">
-                      {accountant.experience_years && (
-                        <span className="mr-4">{accountant.experience_years} Yıl Deneyim</span>
-                      )}
-                      {accountant.city && (
-                        <span>{accountant.city}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <Link
-                      href={`/accountants/${accountant.id}`}
-                      className="w-full flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-                    >
-                      Profili İncele
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-500">Henüz mali müşavir bulunmamaktadır.</p>
-          </div>
-        )}
-      </div>
     </div>
   )
 } 
