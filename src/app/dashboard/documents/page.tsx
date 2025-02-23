@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import axios from '@/lib/axios'
 import Modal from '@/components/Modal'
-import { XMarkIcon, ChevronDownIcon, ChevronUpIcon, EyeIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, ChevronDownIcon, ChevronUpIcon, EyeIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { PageContainer } from '@/components/PageContainer'
 import { toast } from 'react-hot-toast'
 import { 
@@ -16,15 +16,28 @@ import {
   ThemeProvider,
   createTheme
 } from '@mui/material'
+import { format } from 'date-fns'
+import { tr } from 'date-fns/locale'
+
+// DOCUMENT_TYPES için type tanımı
+type DocumentType = 'invoice' | 'receipt' | 'contract' | 'other'
+
+// DOCUMENT_TYPES objesini type ile tanımlayalım
+const DOCUMENT_TYPES: Record<DocumentType, string> = {
+  invoice: 'Fatura',
+  receipt: 'Fiş',
+  contract: 'Sözleşme',
+  other: 'Diğer'
+}
 
 interface Document {
   id: number
-  document_type: string
+  document_type: DocumentType
   file: string
   date: string
   amount: number
   vat_rate: number
-  status: 'pending' | 'processing' | 'completed' | 'rejected'
+  status: string
   created_at: string
 }
 
@@ -56,14 +69,6 @@ interface DocumentModalProps {
   onUpdate?: (updatedDocument: Document) => void
 }
 
-const documentTypes = [
-  { value: 'invoice', label: 'Fatura' },
-  { value: 'receipt', label: 'Fiş' },
-  { value: 'expense', label: 'Gider Pusulası' },
-  { value: 'contract', label: 'Sözleşme' },
-  { value: 'other', label: 'Diğer' }
-]
-
 const statusTypes = [
   { value: 'pending', label: 'Beklemede' },
   { value: 'processing', label: 'İşleniyor' },
@@ -88,6 +93,11 @@ const getStatusBadgeClass = (status: string) => {
 
 const getStatusLabel = (status: string) => {
   return statusTypes.find(s => s.value === status)?.label || status
+}
+
+// Belge tipine göre finansal alanları gösterme kontrolü
+const showFinancialDetails = (documentType: Document['document_type']) => {
+  return documentType === 'invoice' || documentType === 'receipt'
 }
 
 const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant = false, formatAmount, onUpdate }: DocumentModalProps) => {
@@ -123,8 +133,8 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
     try {
       const formData = new FormData()
       formData.append('date', editData.date)
-      formData.append('amount', editData.amount.toString())
-      formData.append('vat_rate', editData.vat_rate.toString())
+      formData.append('amount', editData.amount?.toString() || '')
+      formData.append('vat_rate', editData.vat_rate?.toString() || '')
       formData.append('document_type', editData.document_type)
       
       if (editData.file) {
@@ -136,12 +146,12 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
         setPreviewUrl(response.file)
         const updatedDocument: Document = {
           id: response.id,
-          document_type: response.document_type,
+          document_type: response.document_type as DocumentType,
           file: response.file,
           date: response.date,
           amount: response.amount,
           vat_rate: response.vat_rate,
-          status: response.status as 'pending' | 'processing' | 'completed' | 'rejected',
+          status: response.status as string,
           created_at: response.created_at
         }
         onUpdate?.(updatedDocument)
@@ -162,163 +172,152 @@ const DocumentModal = ({ document, onClose, onStatusChange, onEdit, isAccountant
 
   return (
     <Modal onClose={onClose}>
-      <div className="w-full max-w-4xl mx-auto p-6 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-4xl mx-auto p-6">
         <div className="flex justify-between items-start mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {documentTypes.find(t => t.value === document.document_type)?.label}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <span className="sr-only">Kapat</span>
-            <XMarkIcon className="h-6 w-6" />
-          </button>
-        </div>
-
-        {/* Belge Detayları */}
-        <div className="mb-4">
-          {isEditing ? (
-            // Düzenleme Formu
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Belge Türü</label>
-                <select
-                  value={editData.document_type}
-                  onChange={(e) => setEditData({ ...editData, document_type: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={document.status === 'completed' || document.status === 'rejected'}
-                >
-                  {documentTypes.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Tarih</label>
-                <input
-                  type="date"
-                  value={editData.date}
-                  onChange={(e) => setEditData({ ...editData, date: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={document.status === 'completed' || document.status === 'rejected'}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Tutar</label>
-                <input
-                  type="number"
-                  value={editData.amount}
-                  onChange={(e) => setEditData({ ...editData, amount: parseFloat(e.target.value) })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={document.status === 'completed' || document.status === 'rejected'}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">KDV Oranı (%)</label>
-                <input
-                  type="number"
-                  value={editData.vat_rate}
-                  onChange={(e) => setEditData({ ...editData, vat_rate: parseFloat(e.target.value) })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={document.status === 'completed' || document.status === 'rejected'}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Belge</label>
-                <div className="mt-1 flex items-center">
-                  <input
-                    type="file"
-                    onChange={handleFileChange}
-                    accept="image/*,.pdf"
-                    className="sr-only"
-                    id="file-upload"
-                    disabled={document.status === 'completed' || document.status === 'rejected'}
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Dosya Seç
-                  </label>
-                  <span className="ml-3 text-sm text-gray-500">
-                    {editData.file?.name || 'Mevcut dosya kullanılacak'}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Dosya Önizleme</label>
-                <div className="mt-4">
-                  {previewUrl && (
-                    previewUrl.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                      <img
-                        src={previewUrl}
-                        alt="Belge önizleme"
-                        className="max-h-48 rounded-lg"
-                      />
-                    ) : (
-                      <div className="p-4 bg-gray-100 rounded-lg">
-                        <p className="text-sm text-gray-600">PDF dosyası seçildi</p>
-                      </div>
-                    )
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {DOCUMENT_TYPES[document.document_type]}
+            </h2>
+            <div className="mt-1 space-y-1">
+              {!isEditing ? (
+                // Görüntüleme modu
+                <>
+                  {showFinancialDetails(document.document_type) && (
+                    <>
+                      <p className="text-sm text-gray-500">
+                        Tutar: {document.amount?.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        KDV Oranı: %{document.vat_rate}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        KDV Tutarı: {((document.amount || 0) * (document.vat_rate || 0) / 100).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
+                      </p>
+                      <p className="text-sm font-medium text-gray-700">
+                        Toplam: {((document.amount || 0) * (1 + (document.vat_rate || 0) / 100)).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
+                      </p>
+                    </>
                   )}
-                </div>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  İptal
-                </button>
-                <button
-                  onClick={handleEdit}
-                  disabled={isUpdating || document.status === 'completed' || document.status === 'rejected'}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isUpdating ? 'Kaydediliyor...' : 'Kaydet'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            // Görüntüleme Modu
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-500">Tarih</p>
-                <p className="font-medium">{new Date(document.date).toLocaleDateString('tr-TR')}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Tutar</p>
-                <p className="font-medium">{formatAmount(document.amount)}₺</p>
-              </div>
-              <div>
-                <p className="text-gray-500">KDV</p>
-                <p className="font-medium">%{document.vat_rate}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Durum</p>
-                <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                  getStatusBadgeClass(document.status)
-                }`}>
-                  {getStatusLabel(document.status)}
-                </span>
-              </div>
-              {document.status !== 'completed' && document.status !== 'rejected' && (
-                <div className="col-span-2 flex justify-end">
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                  >
-                    Düzenle
-                  </button>
+                  <p className="text-sm text-gray-500">
+                    Tarih: {format(new Date(document.date), 'd MMMM yyyy', { locale: tr })}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Yüklenme: {format(new Date(document.created_at), 'd MMMM yyyy', { locale: tr })}
+                  </p>
+                </>
+              ) : (
+                // Düzenleme modu
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Belge Tipi</label>
+                    <select
+                      value={editData.document_type}
+                      onChange={(e) => setEditData({ ...editData, document_type: e.target.value as DocumentType })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                      {Object.entries(DOCUMENT_TYPES).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {showFinancialDetails(editData.document_type) && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Tutar</label>
+                        <input
+                          type="number"
+                          value={editData.amount || ''}
+                          onChange={(e) => setEditData({ ...editData, amount: parseFloat(e.target.value) })}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">KDV Oranı (%)</label>
+                        <input
+                          type="number"
+                          value={editData.vat_rate || ''}
+                          onChange={(e) => setEditData({ ...editData, vat_rate: parseFloat(e.target.value) })}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Tarih</label>
+                    <input
+                      type="date"
+                      value={editData.date}
+                      onChange={(e) => setEditData({ ...editData, date: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Belge</label>
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                    />
+                  </div>
                 </div>
               )}
             </div>
-          )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {!isEditing ? (
+              <>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Düzenle
+                </button>
+                <button
+                  onClick={() => {
+                    const link = document.file.match(/\.(jpg|jpeg|png|gif)$/i) ? document.file : getPdfViewerUrl(document.file)
+                    window.open(link, '_blank')
+                  }}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  <EyeIcon className="h-4 w-4 mr-2" />
+                  Görüntüle
+                </button>
+                <button
+                  onClick={() => {
+                    const link = document.file.match(/\.(jpg|jpeg|png|gif)$/i) ? document.file : getPdfViewerUrl(document.file)
+                    const a = window.document.createElement('a')
+                    a.href = link
+                    a.download = document.file.split('/').pop() || 'belge'
+                    a.click()
+                    a.remove()
+                  }}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+                  İndir
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleEdit}
+                  disabled={isUpdating}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {isUpdating ? 'Kaydediliyor...' : 'Kaydet'}
+                </button>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  İptal
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Belge Görüntüleyici */}
-        <div className="mt-6">
+        <div className="bg-gray-100 rounded-lg overflow-hidden">
           {document.file.match(/\.(jpg|jpeg|png|gif)$/i) ? (
             <div className="aspect-w-16 aspect-h-9 bg-gray-100 rounded-lg overflow-hidden">
               <img
@@ -391,6 +390,13 @@ export default function DocumentsPage() {
   })
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [showDocumentModal, setShowDocumentModal] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean,
+    documentId: number | null
+  }>({
+    isOpen: false,
+    documentId: null
+  })
 
   // Yıl seçenekleri (son 5 yıl)
   const years = Array.from({ length: 5 }, (_, i) => 
@@ -442,16 +448,13 @@ export default function DocumentsPage() {
   })
 
   const totalAmount = filteredDocuments.reduce((sum, doc) => {
-    const amount = doc.amount === null ? 0 : 
-      typeof doc.amount === 'string' ? parseFloat(doc.amount) : doc.amount
-    return sum + (isNaN(amount) ? 0 : amount)
+    const amount = doc.amount ?? 0
+    return sum + amount
   }, 0)
 
   const totalVat = filteredDocuments.reduce((sum, doc) => {
-    const amount = doc.amount === null ? 0 :
-      typeof doc.amount === 'string' ? parseFloat(doc.amount) : doc.amount
-    const vatRate = doc.vat_rate === null ? 0 :
-      typeof doc.vat_rate === 'string' ? parseFloat(doc.vat_rate) : doc.vat_rate
+    const amount = doc.amount ?? 0
+    const vatRate = doc.vat_rate ?? 0
     
     if (isNaN(amount) || isNaN(vatRate)) {
       return sum
@@ -498,6 +501,20 @@ export default function DocumentsPage() {
 
   const handleUpdateDocument = (updatedDocument: Document) => {
     setSelectedDocument(updatedDocument)  // Modal içindeki belgeyi güncelle
+  }
+
+  // Silme fonksiyonunu ekleyelim
+  const handleDelete = async (documentId: number) => {
+    try {
+      await axios.delete(`/api/v1/documents/${documentId}/`)
+      toast.success('Belge başarıyla silindi')
+      // Belge listesini güncelle
+      const updatedDocuments = filteredDocuments.filter(doc => doc.id !== documentId)
+      setDocuments(updatedDocuments)
+    } catch (error) {
+      console.error('Belge silinirken hata:', error)
+      toast.error('Belge silinemedi')
+    }
   }
 
   return (
@@ -598,9 +615,9 @@ export default function DocumentsPage() {
                     onChange={(e) => setFilters({ ...filters, documentType: e.target.value })}
                   >
                     <MenuItem value="">Tümü</MenuItem>
-                    {documentTypes.map(type => (
-                      <MenuItem key={type.value} value={type.value}>
-                        {type.label}
+                    {Object.keys(DOCUMENT_TYPES).map(type => (
+                      <MenuItem key={type} value={type}>
+                        {DOCUMENT_TYPES[type as DocumentType]}
                       </MenuItem>
                     ))}
                   </Select>
@@ -663,10 +680,10 @@ export default function DocumentsPage() {
                 {filteredDocuments.map((document) => (
                   <tr key={document.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {documentTypes.find(t => t.value === document.document_type)?.label}
+                      {DOCUMENT_TYPES[document.document_type]}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(document.date).toLocaleDateString('tr-TR')}
+                      {format(new Date(document.date), 'd MMMM yyyy', { locale: tr })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatAmount(document.amount)}₺
@@ -682,15 +699,25 @@ export default function DocumentsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => {
-                          setSelectedDocument(document)
-                          setShowDocumentModal(true)
-                        }}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        Görüntüle
-                      </button>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => {
+                            setSelectedDocument(document)
+                            setShowDocumentModal(true)
+                          }}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          Görüntüle
+                        </button>
+                        {document.status !== 'completed' && (
+                          <button
+                            onClick={() => setDeleteConfirm({ isOpen: true, documentId: document.id })}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Sil
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -719,10 +746,10 @@ export default function DocumentsPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="text-sm font-medium text-gray-900">
-                        {documentTypes.find(t => t.value === document.document_type)?.label}
+                        {DOCUMENT_TYPES[document.document_type]}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        {new Date(document.date).toLocaleDateString('tr-TR')}
+                        {format(new Date(document.date), 'd MMMM yyyy', { locale: tr })}
                       </p>
                     </div>
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
@@ -750,17 +777,28 @@ export default function DocumentsPage() {
 
                   {/* İşlemler */}
                   <div className="flex justify-end pt-2">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault() // Link davranışını engelle
-                        setSelectedDocument(document)
-                        setShowDocumentModal(true)
-                      }}
-                      className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-900"
-                    >
-                      <EyeIcon className="h-4 w-4 mr-1" />
-                      Görüntüle
-                    </button>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault() // Link davranışını engelle
+                          setSelectedDocument(document)
+                          setShowDocumentModal(true)
+                        }}
+                        className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-900"
+                      >
+                        <EyeIcon className="h-4 w-4 mr-1" />
+                        Görüntüle
+                      </button>
+                      {document.status !== 'completed' && (
+                        <button
+                          onClick={() => setDeleteConfirm({ isOpen: true, documentId: document.id })}
+                          className="inline-flex items-center text-sm font-medium text-red-600 hover:text-red-900"
+                        >
+                          <TrashIcon className="h-4 w-4 mr-1" />
+                          Sil
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -780,6 +818,53 @@ export default function DocumentsPage() {
           onUpdate={handleUpdateDocument}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.isOpen && (
+        <DeleteConfirmModal
+          isOpen={deleteConfirm.isOpen}
+          onClose={() => setDeleteConfirm({ isOpen: false, documentId: null })}
+          onConfirm={() => {
+            if (deleteConfirm.documentId) {
+              handleDelete(deleteConfirm.documentId)
+              setDeleteConfirm({ isOpen: false, documentId: null })
+            }
+          }}
+        />
+      )}
     </PageContainer>
+  )
+}
+
+const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }: {
+  isOpen: boolean,
+  onClose: () => void,
+  onConfirm: () => void
+}) => {
+  if (!isOpen) return null
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="p-6">
+        <h3 className="text-lg font-medium text-gray-900">Belgeyi Sil</h3>
+        <p className="mt-2 text-sm text-gray-500">
+          Bu belgeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+        </p>
+        <div className="mt-4 flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            İptal
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+          >
+            Sil
+          </button>
+        </div>
+      </div>
+    </Modal>
   )
 } 

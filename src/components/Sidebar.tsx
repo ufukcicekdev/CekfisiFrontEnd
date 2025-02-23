@@ -40,6 +40,7 @@ const Sidebar = () => {
       { name: 'Abonelik', href: '/dashboard/subscription', icon: CreditCardIcon },
     ] : [
       { name: 'Belgelerim', href: '/dashboard/documents', icon: DocumentTextIcon },
+      { name: 'Dökümanlarım', href: '/dashboard/client/documents', icon: DocumentTextIcon },
       { name: 'Mesajlar', href: '/dashboard/client/messages', icon: ChatBubbleLeftRightIcon },
     ]),
     { name: 'Profilim', href: '/dashboard/profile', icon: UserCircleIcon },

@@ -257,22 +257,21 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
 
   useEffect(() => {
     if (params?.id) {
-      fetchClientDetails()
       fetchClientDocuments()
     }
   }, [params?.id])
 
-  const fetchClientDetails = async () => {
-    if (!params?.id) return;
-    
-    try {
-      const response = await axios.get(`/api/v1/accountants/${params.id}`)
-      setClient(response.data)
-    } catch (error) {
-      console.error('Error fetching client details:', error)
-      toast.error('Müşteri bilgileri yüklenirken bir hata oluştu')
-    }
-  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
   const fetchClientDocuments = async () => {
     try {

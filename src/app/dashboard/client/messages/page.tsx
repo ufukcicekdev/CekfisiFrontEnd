@@ -18,6 +18,8 @@ interface User {
   id: number
   email: string
   user_type: string
+  first_name: string
+  last_name: string
 }
 
 interface LastMessage {
@@ -383,6 +385,14 @@ export default function ClientMessagesPage() {
     ));
   };
 
+  // Kullanıcı adını formatlamak için yardımcı fonksiyon
+  const formatUserName = (user: User) => {
+    if (user.first_name && user.last_name) {
+      return `${user.first_name} ${user.last_name}`;
+    }
+    return user.email;
+  };
+
   return (
     <PageContainer>
       <div className="flex flex-col lg:flex-row h-[calc(100vh-100px)] bg-white rounded-lg shadow-lg">
@@ -416,14 +426,14 @@ export default function ClientMessagesPage() {
                       selectedRoom?.id === room.id ? 'bg-indigo-50' : ''
                     }`}
                   >
-                    <div className="font-medium">
-                      {otherParticipant ? otherParticipant.email : 'Bilinmeyen Kullanıcı'}
-                    </div>
-                    {room.last_message && (
-                      <div className="text-sm text-gray-500 truncate">
-                        {room.last_message.content}
+                    <div className="flex flex-col">
+                      <div className="font-medium text-gray-900">
+                        {otherParticipant ? formatUserName(otherParticipant) : 'Bilinmeyen Kullanıcı'}
                       </div>
-                    )}
+                      <div className="text-sm text-gray-500">
+                        {otherParticipant?.email}
+                      </div>
+                    </div>
                     <div className="text-xs text-gray-400 mt-1">
                       {new Date(room.created_at).toLocaleDateString('tr-TR')}
                     </div>
@@ -451,9 +461,17 @@ export default function ClientMessagesPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  <h3 className="font-medium">
-                    {getOtherParticipant(selectedRoom)?.email || 'Bilinmeyen Kullanıcı'}
-                  </h3>
+                  <div className="flex flex-col">
+                    <h3 className="font-medium text-gray-900">
+                      {getOtherParticipant(selectedRoom) 
+                        ? formatUserName(getOtherParticipant(selectedRoom)!) 
+                        : 'Bilinmeyen Kullanıcı'
+                      }
+                    </h3>
+                    <div className="text-sm text-gray-500">
+                      {getOtherParticipant(selectedRoom)?.email}
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -20,6 +20,8 @@ interface User {
   id: number
   email: string
   user_type: string
+  first_name: string
+  last_name: string
 }
 
 interface LastMessage {
@@ -218,6 +220,14 @@ const FileViewerModal = ({ isOpen, onClose, file }: FileViewerModalProps) => {
       </Dialog>
     </Transition>
   );
+};
+
+// Kullanıcı adını formatlamak için yardımcı fonksiyon
+const formatUserName = (user: User) => {
+  if (user.first_name && user.last_name) {
+    return `${user.first_name} ${user.last_name}`;
+  }
+  return user.email;
 };
 
 export default function MessagesPage() {
@@ -581,7 +591,7 @@ export default function MessagesPage() {
                     }`}
                   >
                     <div className="font-medium">
-                      {otherParticipant ? otherParticipant.email : 'Bilinmeyen Kullanıcı'}
+                      {otherParticipant ? formatUserName(otherParticipant) : 'Bilinmeyen Kullanıcı'}
                     </div>
                     {room.last_message && (
                       <div className="text-sm text-gray-500 truncate">
@@ -615,7 +625,10 @@ export default function MessagesPage() {
                     </svg>
                   </button>
                   <h3 className="font-medium">
-                    {getOtherParticipant(selectedRoom)?.email || 'Bilinmeyen Kullanıcı'}
+                    {getOtherParticipant(selectedRoom) 
+                      ? formatUserName(getOtherParticipant(selectedRoom)!) 
+                      : 'Bilinmeyen Kullanıcı'
+                    }
                   </h3>
                 </div>
               </div>
