@@ -51,4 +51,29 @@ export const getAcceptedFileTypesMessage = (): string => {
 
 export const getAcceptedImageTypesMessage = (): string => {
   return 'Lütfen geçerli bir resim dosyası seçin (JPG, PNG, GIF, WEBP)'
+}
+
+// Yeni fonksiyonu ekleyelim
+export const getFileType = (fileUrl: string): 'image' | 'pdf' | 'word' | 'excel' | 'other' | 'unknown' => {
+  const extension = fileUrl.split('.').pop()?.toLowerCase()
+  if (!extension) return 'unknown'
+
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+    return 'image'
+  }
+  if (['pdf'].includes(extension)) {
+    return 'pdf'
+  }
+  if (['doc', 'docx'].includes(extension)) {
+    return 'word'
+  }
+  if (['xls', 'xlsx'].includes(extension)) {
+    return 'excel'
+  }
+  return 'other'
+}
+
+// PDF görüntüleyici URL'si oluşturan fonksiyon
+export const getPdfViewerUrl = (fileUrl: string): string => {
+  return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`
 } 

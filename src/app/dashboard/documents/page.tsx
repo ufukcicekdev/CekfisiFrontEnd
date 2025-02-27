@@ -18,6 +18,16 @@ import {
 } from '@mui/material'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
+import { 
+  validateFileSize, 
+  formatFileSize, 
+  MAX_FILE_SIZE,
+  validateFileType,
+  ACCEPTED_FILE_TYPES_STRING,
+  getAcceptedFileTypesMessage,
+  getFileType,
+  getPdfViewerUrl  // Yeni fonksiyonu import edelim
+} from '@/utils/fileUtils'
 
 // DOCUMENT_TYPES için type tanımı
 type DocumentType = 'invoice' | 'receipt' | 'contract' | 'other'
@@ -517,6 +527,72 @@ export default function DocumentsPage() {
     }
   }
 
+  const renderDocument = () => {
+    // Önce dosya var mı kontrol edelim
+    if (!selectedDocument?.file) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          Dosya bulunamadı
+        </div>
+      )
+    }
+
+    const fileType = getFileType(selectedDocument.file)
+
+    switch (fileType) {
+      case 'image':
+        return (
+          <img
+            src={selectedDocument.file}
+            alt="Belge"
+            className="w-full h-auto max-h-[70vh] object-contain"
+          />
+        )
+      
+      case 'pdf':
+        return (
+          <iframe
+            src={getPdfViewerUrl(selectedDocument.file)}
+            className="w-full h-[70vh]"
+            frameBorder="0"
+            title="PDF Görüntüleyici"
+          />
+        )
+      
+      case 'word':
+      case 'excel':
+      case 'other':
+        return (
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">
+              Bu dosya türü tarayıcıda görüntülenemiyor.
+            </p>
+            <a
+              href={selectedDocument.file}
+              download
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Dosyayı İndir
+            </a>
+          </div>
+        )
+      
+      default:
+        return (
+          <div className="text-center py-8 text-gray-500">
+            Dosya görüntülenemiyor
+          </div>
+        )
+    }
+  }
+
+  const handleOpenDocument = (doc: Document) => {
+    if (!doc) return // Belge yoksa işlem yapma
+    
+    setSelectedDocument(doc)
+    setShowDocumentModal(true)
+  }
+
   return (
     <PageContainer>
       {/* Başlık ve Yeni Belge Butonu */}
@@ -701,13 +777,11 @@ export default function DocumentsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-3">
                         <button
-                          onClick={() => {
-                            setSelectedDocument(document)
-                            setShowDocumentModal(true)
-                          }}
+                          onClick={() => handleOpenDocument(document)}
                           className="text-indigo-600 hover:text-indigo-900"
                         >
-                          Görüntüle
+                          <EyeIcon className="h-5 w-5" />
+                          <span className="sr-only">Görüntüle</span>
                         </button>
                         {document.status !== 'completed' && (
                           <button
@@ -779,11 +853,7 @@ export default function DocumentsPage() {
                   <div className="flex justify-end pt-2">
                     <div className="flex items-center space-x-3">
                       <button
-                        onClick={(e) => {
-                          e.preventDefault() // Link davranışını engelle
-                          setSelectedDocument(document)
-                          setShowDocumentModal(true)
-                        }}
+                        onClick={() => handleOpenDocument(document)}
                         className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-900"
                       >
                         <EyeIcon className="h-4 w-4 mr-1" />

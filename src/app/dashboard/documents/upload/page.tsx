@@ -67,8 +67,8 @@ interface FormData {
   document_type: keyof typeof DOCUMENT_TYPES | ''
   file: File | null
   date: string
-  amount: string
-  vat_rate: string
+  amount?: string  // opsiyonel
+  vat_rate?: string  // opsiyonel
 }
 
 export default function UploadPage() {
@@ -94,28 +94,48 @@ export default function UploadPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
+    // Form verilerini al
     const form = e.target as HTMLFormElement
     const fileInput = form.querySelector('input[type="file"]') as HTMLInputElement
     const file = fileInput?.files?.[0]
 
-    if (file) {
-      if (!validateFileSize(file)) {
-        toast.error(`Dosya boyutu çok büyük. Maksimum dosya boyutu: ${formatFileSize(MAX_FILE_SIZE)}`)
-        return
-      }
+    // Dosya kontrolü
+    if (!file) {
+      toast.error('Lütfen bir dosya seçin')
+      return
+    }
 
-      if (!validateFileType(file)) {
-        toast.error(getAcceptedFileTypesMessage())
-        return
-      }
+    // Dosya validasyonları
+    if (!validateFileSize(file)) {
+      toast.error(`Dosya boyutu çok büyük. Maksimum dosya boyutu: ${formatFileSize(MAX_FILE_SIZE)}`)
+      return
+    }
+
+    if (!validateFileType(file)) {
+      toast.error(getAcceptedFileTypesMessage())
+      return
     }
 
     setIsUploading(true)
 
     try {
-      const formData = new FormData(form)
+      // Yeni FormData oluştur
+      const formData = new FormData()
       
-      // Content-Type header'ı otomatik olarak multipart/form-data olarak ayarlanacak
+      // Form verilerini ekle
+      formData.append('document_type', form.document_type.value)
+      formData.append('date', form.date.value)
+      formData.append('file', file)
+
+      // Opsiyonel alanları kontrol et ve ekle
+      if (form.amount?.value) {
+        formData.append('amount', form.amount.value)
+      }
+      if (form.vat_rate?.value) {
+        formData.append('vat_rate', form.vat_rate.value)
+      }
+
+      // API'ye gönder
       await axios.post('/api/v1/documents/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -189,28 +209,36 @@ export default function UploadPage() {
               />
             </div>
 
-            {/* Tutar ve KDV alanları sadece fatura veya fiş seçiliyse gösterilir */}
+            {/* Tutar ve KDV alanları opsiyonel olarak gösterilir */}
             {showFinancialFields && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tutar</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Tutar (Opsiyonel)
+                  </label>
                   <input
                     type="number"
                     name="amount"
                     step="0.01"
-                    required
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
+                  
+                  
+                  
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">KDV Oranı (%)</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    KDV Oranı (%) (Opsiyonel)
+                  </label>
                   <input
                     type="number"
                     name="vat_rate"
-                    required
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
+                 
+                 
+                 
                 </div>
               </>
             )}

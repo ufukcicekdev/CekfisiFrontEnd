@@ -16,6 +16,18 @@ import {
 } from '@mui/material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 
+interface ReceiptDetails {
+  seller_name: string
+  date: string
+  total_amount: number
+  vat_amount: number
+  items: Array<{
+    name: string
+    quantity: number
+    unit_price: number
+  }>
+}
+
 interface Document {
   id: number
   document_type: string
@@ -26,6 +38,7 @@ interface Document {
   status: 'pending' | 'processing' | 'completed' | 'rejected'
   created_at: string
   updated_at: string
+  receipt_details?: ReceiptDetails
 }
 
 interface Client {
@@ -62,11 +75,24 @@ interface DocumentModalProps {
   document: Document
   onClose: () => void
   onStatusChange?: (documentId: number, newStatus: 'pending' | 'processing' | 'completed' | 'rejected') => Promise<void>
+  onUpdateDocument?: (documentId: number, payload: { amount: number, vat_rate: number }) => Promise<Document>
   isAccountant?: boolean
 }
 
-const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false }: DocumentModalProps) => {
+const DocumentModal = ({ document, onClose, onStatusChange, onUpdateDocument, isAccountant = false }: DocumentModalProps) => {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedValues, setEditedValues] = useState({
+    amount: document.amount?.toString() || '',
+    vat_rate: document.vat_rate?.toString() || ''
+  })
+
+  useEffect(() => {
+    setEditedValues({
+      amount: document.amount?.toString() || '',
+      vat_rate: document.vat_rate?.toString() || ''
+    })
+  }, [document])
 
   const getStatusLabel = (status: string) => {
     return statusTypes.find(s => s.value === status)?.label || status
@@ -75,6 +101,76 @@ const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false
   // PDF görüntüleyici URL'si oluştur
   const getPdfViewerUrl = (fileUrl: string) => {
     return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`
+  }
+
+  // Dosya tipini kontrol et
+  const getFileType = (fileUrl: string) => {
+    const extension = fileUrl.split('.').pop()?.toLowerCase()
+    if (!extension) return 'unknown'
+
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+      return 'image'
+    }
+    if (['pdf'].includes(extension)) {
+      return 'pdf'
+    }
+    if (['doc', 'docx'].includes(extension)) {
+      return 'word'
+    }
+    if (['xls', 'xlsx'].includes(extension)) {
+      return 'excel'
+    }
+    return 'other'
+  }
+
+  const renderDocument = () => {
+    const fileType = getFileType(document.file)
+
+    switch (fileType) {
+      case 'image':
+        return (
+          <img
+            src={document.file}
+            alt="Belge"
+            className="w-full h-auto max-h-[70vh] object-contain"
+          />
+        )
+      
+      case 'pdf':
+        return (
+          <iframe
+            src={getPdfViewerUrl(document.file)}
+            className="w-full h-[70vh]"
+            frameBorder="0"
+            title="PDF Görüntüleyici"
+          />
+        )
+      
+      case 'word':
+      case 'excel':
+      case 'other':
+        return (
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">
+              Bu dosya türü tarayıcıda görüntülenemiyor.
+            </p>
+            <a
+              href={document.file}
+              download
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Dosyayı İndir
+            </a>
+          </div>
+        )
+      
+      default:
+        return (
+          <div className="text-center py-8 text-gray-500">
+            Dosya görüntülenemiyor
+          </div>
+        )
+    }
   }
 
   const handleStatusChange = async (newStatus: 'pending' | 'processing' | 'completed' | 'rejected') => {
@@ -86,6 +182,30 @@ const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Belge durumu güncellenirken bir hata oluştu'
       toast.error(errorMessage)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleEditSubmit = async () => {
+    if (!onUpdateDocument) return
+
+    setIsUpdating(true)
+    try {
+      const payload = {
+        amount: parseFloat(editedValues.amount),
+        vat_rate: parseFloat(editedValues.vat_rate),
+        receipt_details: document.document_type === 'receipt' ? {
+          ...document.receipt_details,
+          total_amount: parseFloat(editedValues.amount),
+          vat_amount: parseFloat(editedValues.vat_rate)
+        } : undefined
+      }
+
+      await onUpdateDocument(document.id, payload)
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Belge güncellenirken hata:', error)
     } finally {
       setIsUpdating(false)
     }
@@ -109,29 +229,89 @@ const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false
 
         {/* Belge Detayları */}
         <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          {/* Fiş detayları */}
+          {document.document_type === 'receipt' && document.receipt_details && (
+            <>
+              <div>
+                <p className="text-gray-500">Satıcı</p>
+                <p className="font-medium">{document.receipt_details.seller_name}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Fiş Tarihi</p>
+                <p className="font-medium">{document.receipt_details.date}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Toplam Tutar</p>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={editedValues.amount}
+                    onChange={(e) => setEditedValues(prev => ({ ...prev, amount: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    step="0.01"
+                  />
+                ) : (
+                  <p className="font-medium">{document.amount.toLocaleString('tr-TR')}₺</p>
+                )}
+              </div>
+              <div>
+                <p className="text-gray-500">KDV Oranı</p>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={editedValues.vat_rate}
+                    onChange={(e) => setEditedValues(prev => ({ ...prev, vat_rate: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    step="0.01"
+                  />
+                ) : (
+                  <p className="font-medium">%{document.vat_rate}</p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Diğer belge tipleri için normal görünüm */}
+          {document.document_type !== 'receipt' && (
+            <>
+              <div>
+                <p className="text-gray-500">Tarih</p>
+                <p className="font-medium">{new Date(document.date).toLocaleDateString('tr-TR')}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Tutar</p>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={editedValues.amount}
+                    onChange={(e) => setEditedValues(prev => ({ ...prev, amount: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    step="0.01"
+                  />
+                ) : (
+                  <p className="font-medium">{document?.amount?.toLocaleString('tr-TR')}₺</p>
+                )}
+              </div>
+              <div>
+                <p className="text-gray-500">KDV</p>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={editedValues.vat_rate}
+                    onChange={(e) => setEditedValues(prev => ({ ...prev, vat_rate: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    step="0.01"
+                  />
+                ) : (
+                  <p className="font-medium">%{document?.vat_rate}</p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Durum seçici her belge tipi için gösterilecek */}
           <div>
-            <p className="text-gray-500">Tarih</p>
-            <p className="font-medium">{new Date(document.date).toLocaleDateString('tr-TR')}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Tutar</p>
-            <p className="font-medium">{document?.amount?.toLocaleString('tr-TR')}₺</p>
-          </div>
-          <div>
-            <p className="text-gray-500">KDV</p>
-            <p className="font-medium">%{document?.vat_rate}</p>
-          </div>
-          <div>
-            <FormControl 
-              size="small" 
-              sx={{ 
-                width: '100%',
-                minWidth: { xs: '100%', sm: 200 },
-                '& .MuiOutlinedInput-root': {
-                  width: '100%'
-                }
-              }}
-            >
+            <FormControl size="small" sx={{ width: '100%', minWidth: { xs: '100%', sm: 200 } }}>
               <InputLabel>Durum</InputLabel>
               <Select
                 value={document.status}
@@ -147,36 +327,50 @@ const DocumentModal = ({ document, onClose, onStatusChange, isAccountant = false
               </Select>
             </FormControl>
           </div>
-        </div>
 
-        {/* Belge Görüntüleyici */}
-        <div className="mt-6">
-          {document.file.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-            <div className="aspect-w-16 aspect-h-9 bg-gray-100 rounded-lg overflow-hidden">
-              <img
-                src={document.file}
-                alt="Belge"
-                className="object-contain w-full h-full"
-              />
-            </div>
-          ) : (
-            <div className="h-[60vh] relative rounded-lg overflow-hidden">
-              <iframe
-                src={getPdfViewerUrl(document.file)}
-                className="w-full h-full"
-                style={{ border: 'none' }}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
+          {/* Düzenleme Butonları - Tüm belge tipleri için göster */}
+          {isAccountant && (
+            <div className="col-span-2 flex justify-end space-x-2">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                    disabled={isUpdating}
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={handleEditSubmit}
+                    className="px-3 py-1 text-sm text-white bg-indigo-600 rounded hover:bg-indigo-700"
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? 'Kaydediliyor...' : 'Kaydet'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-800"
+                >
+                  Düzenle
+                </button>
+              )}
             </div>
           )}
         </div>
 
-        {/* İndirme Butonu */}
+        {/* Belge Görüntüleyici */}
+        <div className="mt-4 bg-gray-100 rounded-lg overflow-hidden">
+          {renderDocument()}
+        </div>
+
+        {/* İndirme butonu */}
         <div className="mt-4 flex justify-end">
           <a
             href={document.file}
             download
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
           >
             Belgeyi İndir
           </a>
@@ -260,18 +454,6 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
       fetchClientDocuments()
     }
   }, [params?.id])
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
 
   const fetchClientDocuments = async () => {
     try {
@@ -358,6 +540,29 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
       router.push(`/dashboard/messages?room=${response.data.id}`)
     } catch (error) {
       toast.error('Sohbet başlatılırken bir hata oluştu')
+    }
+  }
+
+  // Belge güncelleme fonksiyonu
+  const handleUpdateDocument = async (documentId: number, payload: { amount: number, vat_rate: number }) => {
+    try {
+      const response = await axios.patch(`/api/v1/accountants/${params.id}/documents/${documentId}/`, payload)
+      
+      // Belgeleri güncelle
+      const updatedDoc = response.data
+      setDocuments(documents.map(doc => 
+        doc.id === documentId ? updatedDoc : doc
+      ))
+      
+      // Seçili belgeyi de güncelle
+      setSelectedDocument(updatedDoc)
+
+      toast.success('Belge başarıyla güncellendi')
+      return updatedDoc
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Belge güncellenirken bir hata oluştu'
+      toast.error(errorMessage)
+      throw error
     }
   }
 
@@ -621,6 +826,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
           document={selectedDocument}
           onClose={() => setSelectedDocument(null)}
           onStatusChange={handleStatusChange}
+          onUpdateDocument={handleUpdateDocument}
           isAccountant={true}
         />
       )}
